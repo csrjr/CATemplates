@@ -1,3 +1,5 @@
+(* ::Package:: *)
+
 BeginPackage["CATemplates`CATemplate`",
   {
     "CATemplates`CA`",
@@ -8,6 +10,7 @@ TemplateCoreVars::usage = "TemplateCoreVars[templateCore_List] := Gives all vari
 TemplateVarFromNeighbourhood::usage = "Returns the template symbol orresponding to a given neighbourhood";
 RawCore::usage="RawCore[t_List]: Receives a template core and drops any special sintax construct from it. Currently, it removes expressions of the form x \[Element] {__}.";
 CoreVarsFromConstants::usage = "CoreVarsFromConstants[replacementRules_]: Receives a list of replacement rules, and converts any symbol of the type C[i_Integer] into its corresponding template core variable, preserving the index-variable duality.";
+ConvertToPoly::usage = "ConvertToPoly[core_List,k_Integer] = Converts all variable domain restrictions in <core> to polynomials such that their image for [0..k-1] is the same as the original domain for each each variable.";
 
 BuildTemplate::usage=
     "BuildTemplate[k_Integer, r_Real, core_List, expansion_Function]
@@ -53,16 +56,19 @@ CoreVarsFromConstants[replacementRules_List] :=
     With[{freeVariableReplacementRules = Reverse /@ Select[Sort[replacementRules], MatchQ[#,Rule[_Symbol, C[_]]]&]},
       replacementRules /. freeVariableReplacementRules];
 
+ConvertToPoly[core_List, k_Integer] :=
+	core /. x_ \[Element] S_ -> {x, If[ContainsAny[S,{#}], {#,#}, {#,k}]& /@ Range[0, k-1]} /. {x_,pts_List} -> InterpolatingPolynomial[pts,x] // Expand;
+	
 (* Builder functions *)
 
 BuildTemplate[k_Integer, r_Real, core_List] :=
-    Association["k" -> k, "r" -> r, "core" -> core, "postExpansionFn" -> IdentityFn];
+    Association["k" -> k, "r" -> r, "core" -> ConvertToPoly[core,k], "postExpansionFn" -> IdentityFn];
 
 BuildTemplate[k_Integer, r_Real, core_List, postExpansionFn_] :=
-    Association["k" -> k, "r" -> r, "core" -> core, "postExpansionFn" -> postExpansionFn];
+    Association["k" -> k, "r" -> r, "core" -> ConvertToPoly[core,k], "postExpansionFn" -> postExpansionFn];
 
 BuildTemplate[k_Integer, r_Real, core_List, postExpansionFn_, N_Integer] :=
-    Association["k" -> k, "r" -> r, "core" -> core, "postExpansionFn" -> postExpansionFn, "N" -> N];
+    Association["k" -> k, "r" -> r, "core" -> ConvertToPoly[core,k], "postExpansionFn" -> postExpansionFn, "N" -> N];
 
 BaseTemplate[k_Integer:2, r_Real:1.0] :=
     BuildTemplate[k, r, BaseTemplateCore[k,r]];
